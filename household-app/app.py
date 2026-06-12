@@ -87,6 +87,7 @@ def delete_item(section, item_id):
         conn.commit()
     return jsonify({"deleted": item_id})
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True)
