@@ -31,6 +31,13 @@ function renderItem(section, item) {
     li.appendChild(span);
     li.appendChild(del);
 
+    addDesktopDrag(li, section);
+    addTouchDrag(grip, li, section);
+
+    return li;
+}
+
+function addDesktopDrag(li, section) {
     li.addEventListener("dragstart", e => {
         dragSrc = li;
         e.dataTransfer.effectAllowed = "move";
@@ -55,19 +62,58 @@ function renderItem(section, item) {
         e.preventDefault();
         li.classList.remove("drag-over");
         if (!dragSrc || dragSrc === li) return;
-        const list = li.parentNode;
-        const items = [...list.querySelectorAll("li")];
-        const srcIdx = items.indexOf(dragSrc);
-        const dstIdx = items.indexOf(li);
-        if (srcIdx < dstIdx) {
-            list.insertBefore(dragSrc, li.nextSibling);
-        } else {
-            list.insertBefore(dragSrc, li);
-        }
-        syncOrder(section, list);
+        insertAndSync(dragSrc, li, section);
     });
+}
 
-    return li;
+function addTouchDrag(grip, li, section) {
+    let touchTarget = null;
+
+    grip.addEventListener("touchstart", e => {
+        e.preventDefault();
+        li.classList.add("dragging");
+        touchTarget = null;
+    }, { passive: false });
+
+    grip.addEventListener("touchmove", e => {
+        e.preventDefault();
+        const touch = e.touches[0];
+
+        // temporarily pass through pointer events so elementFromPoint finds the item underneath
+        li.style.pointerEvents = "none";
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        li.style.pointerEvents = "";
+
+        const target = el && el.closest("li");
+        if (target && target !== li && target.parentNode === li.parentNode) {
+            document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+            target.classList.add("drag-over");
+            touchTarget = target;
+        }
+    }, { passive: false });
+
+    grip.addEventListener("touchend", e => {
+        e.preventDefault();
+        li.classList.remove("dragging");
+        document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+        if (touchTarget) {
+            insertAndSync(li, touchTarget, section);
+            touchTarget = null;
+        }
+    }, { passive: false });
+}
+
+function insertAndSync(src, target, section) {
+    const list = target.parentNode;
+    const items = [...list.querySelectorAll("li")];
+    const srcIdx = items.indexOf(src);
+    const dstIdx = items.indexOf(target);
+    if (srcIdx < dstIdx) {
+        list.insertBefore(src, target.nextSibling);
+    } else {
+        list.insertBefore(src, target);
+    }
+    syncOrder(section, list);
 }
 
 async function syncOrder(section, list) {
