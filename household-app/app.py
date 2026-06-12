@@ -1,35 +1,42 @@
+import os
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-import sqlite3
-import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 CORS(app)
 
-DB = "database.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_db():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 def init_db():
-    with get_db() as db:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS todos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                text TEXT NOT NULL,
-                done INTEGER DEFAULT 0
-            )
-        """)
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS groceries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                text TEXT NOT NULL,
-                done INTEGER DEFAULT 0
-            )
-        """)
-        db.commit()
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS todos (
+                    id SERIAL PRIMARY KEY,
+                    text TEXT NOT NULL,
+                    done BOOLEAN DEFAULT FALSE
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS groceries (
+                    id SERIAL PRIMARY KEY,
+                    text TEXT NOT NULL,
+                    done BOOLEAN DEFAULT FALSE
+                )
+            """)
+        conn.commit()
+
+ALLOWED_SECTIONS = {"todos", "groceries"}
+
+def validate(section):
+    if section not in ALLOWED_SECTIONS:
+        return jsonify({"error": "invalid section"}), 404
+    return None
 
 @app.route("/")
 def index():
@@ -37,34 +44,47 @@ def index():
 
 @app.route("/api/<section>", methods=["GET"])
 def get_items(section):
-    with get_db() as db:
-        items = db.execute(f"SELECT * FROM {section}").fetchall()
+    err = validate(section)
+    if err: return err
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT * FROM {section}")
+            items = cur.fetchall()
     return jsonify([dict(i) for i in items])
 
 @app.route("/api/<section>", methods=["POST"])
 def add_item(section):
+    err = validate(section)
+    if err: return err
     text = request.json.get("text", "").strip()
     if not text:
         return jsonify({"error": "empty"}), 400
-    with get_db() as db:
-        cur = db.execute(f"INSERT INTO {section} (text) VALUES (?)", (text,))
-        db.commit()
-        item = db.execute(f"SELECT * FROM {section} WHERE id = ?", (cur.lastrowid,)).fetchone()
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"INSERT INTO {section} (text) VALUES (%s) RETURNING *", (text,))
+            item = cur.fetchone()
+        conn.commit()
     return jsonify(dict(item)), 201
 
 @app.route("/api/<section>/<int:item_id>", methods=["PATCH"])
 def toggle_item(section, item_id):
-    with get_db() as db:
-        db.execute(f"UPDATE {section} SET done = 1 - done WHERE id = ?", (item_id,))
-        db.commit()
-        item = db.execute(f"SELECT * FROM {section} WHERE id = ?", (item_id,)).fetchone()
+    err = validate(section)
+    if err: return err
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE {section} SET done = NOT done WHERE id = %s RETURNING *", (item_id,))
+            item = cur.fetchone()
+        conn.commit()
     return jsonify(dict(item))
 
 @app.route("/api/<section>/<int:item_id>", methods=["DELETE"])
 def delete_item(section, item_id):
-    with get_db() as db:
-        db.execute(f"DELETE FROM {section} WHERE id = ?", (item_id,))
-        db.commit()
+    err = validate(section)
+    if err: return err
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"DELETE FROM {section} WHERE id = %s", (item_id,))
+        conn.commit()
     return jsonify({"deleted": item_id})
 
 if __name__ == "__main__":
