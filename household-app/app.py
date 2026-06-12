@@ -15,20 +15,18 @@ def get_db():
 def init_db():
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS todos (
-                    id SERIAL PRIMARY KEY,
-                    text TEXT NOT NULL,
-                    done BOOLEAN DEFAULT FALSE
-                )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS groceries (
-                    id SERIAL PRIMARY KEY,
-                    text TEXT NOT NULL,
-                    done BOOLEAN DEFAULT FALSE
-                )
-            """)
+            for table in ("todos", "groceries"):
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {table} (
+                        id SERIAL PRIMARY KEY,
+                        text TEXT NOT NULL,
+                        done BOOLEAN DEFAULT FALSE,
+                        position INTEGER DEFAULT 0
+                    )
+                """)
+                cur.execute(f"""
+                    ALTER TABLE {table} ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0
+                """)
         conn.commit()
 
 ALLOWED_SECTIONS = {"todos", "groceries"}
@@ -48,7 +46,7 @@ def get_items(section):
     if err: return err
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT * FROM {section}")
+            cur.execute(f"SELECT * FROM {section} ORDER BY position ASC, id ASC")
             items = cur.fetchall()
     return jsonify([dict(i) for i in items])
 
@@ -61,7 +59,12 @@ def add_item(section):
         return jsonify({"error": "empty"}), 400
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(f"INSERT INTO {section} (text) VALUES (%s) RETURNING *", (text,))
+            cur.execute(f"SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM {section}")
+            next_pos = cur.fetchone()["next_pos"]
+            cur.execute(
+                f"INSERT INTO {section} (text, position) VALUES (%s, %s) RETURNING *",
+                (text, next_pos)
+            )
             item = cur.fetchone()
         conn.commit()
     return jsonify(dict(item)), 201
@@ -76,6 +79,18 @@ def toggle_item(section, item_id):
             item = cur.fetchone()
         conn.commit()
     return jsonify(dict(item))
+
+@app.route("/api/<section>/reorder", methods=["POST"])
+def reorder_items(section):
+    err = validate(section)
+    if err: return err
+    ids = request.json.get("ids", [])
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            for pos, item_id in enumerate(ids):
+                cur.execute(f"UPDATE {section} SET position = %s WHERE id = %s", (pos, item_id))
+        conn.commit()
+    return jsonify({"ok": True})
 
 @app.route("/api/<section>/<int:item_id>", methods=["DELETE"])
 def delete_item(section, item_id):
