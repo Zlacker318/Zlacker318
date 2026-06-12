@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Household App</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <h1>Household</h1>
+
+    <div class="sections">
+        <section id="todos-section">
+            <h2>To-Do List</h2>
+            <div class="input-row">
+                <input type="text" id="todo-input" placeholder="Add a task..." />
+                <button onclick="addItem('todos', 'todo-input')">Add</button>
+            </div>
+            <ul id="todos-list"></ul>
+        </section>
+
+        <section id="groceries-section">
+            <h2>Groceries</h2>
+            <div class="input-row">
+                <input type="text" id="grocery-input" placeholder="Add an item..." />
+                <button onclick="addItem('groceries', 'grocery-input')">Add</button>
+            </div>
+            <ul id="groceries-list"></ul>
+        </section>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
