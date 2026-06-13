@@ -21,6 +21,12 @@ function renderItem(section, item) {
     const span = document.createElement("span");
     span.textContent = item.text;
 
+    const resetBtn = document.createElement("button");
+    resetBtn.textContent = "↺";
+    resetBtn.className = "progress-btn";
+    resetBtn.title = "Reset to not started";
+    resetBtn.onclick = () => setProgress(section, item.id, "not_started");
+
     const inProgressBtn = document.createElement("button");
     inProgressBtn.textContent = "▶";
     inProgressBtn.className = "progress-btn";
@@ -40,6 +46,7 @@ function renderItem(section, item) {
 
     li.appendChild(grip);
     li.appendChild(span);
+    li.appendChild(resetBtn);
     li.appendChild(inProgressBtn);
     li.appendChild(doneBtn);
     li.appendChild(del);
