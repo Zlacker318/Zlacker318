@@ -1,8 +1,4 @@
 import os
-import json
-import threading
-import urllib.request
-import urllib.error
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import psycopg2
@@ -12,36 +8,6 @@ app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
-EMAIL_TO = os.environ.get("EMAIL_TO", "")
-
-def send_notification(section, text):
-    if not RESEND_API_KEY or not EMAIL_TO:
-        return
-    recipients = [e.strip() for e in EMAIL_TO.split(",") if e.strip()]
-    if not recipients:
-        return
-    section_label = "To-Do List" if section == "todos" else "Groceries"
-    payload = json.dumps({
-        "from": "Household App <onboarding@resend.dev>",
-        "to": recipients,
-        "subject": f"[Household] New item added to {section_label}",
-        "text": f'"{text}" was added to the {section_label}.'
-    }).encode()
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json"
-        }
-    )
-    try:
-        urllib.request.urlopen(req)
-    except urllib.error.HTTPError as e:
-        app.logger.error(f"Email failed: {e.code} {e.read().decode()}")
-    except Exception as e:
-        app.logger.error(f"Email failed: {e}")
 
 def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -104,7 +70,6 @@ def add_item(section):
             )
             item = cur.fetchone()
         conn.commit()
-    threading.Thread(target=send_notification, args=(section, text), daemon=True).start()
     return jsonify(dict(item)), 201
 
 @app.route("/api/<section>/<int:item_id>", methods=["PATCH"])
