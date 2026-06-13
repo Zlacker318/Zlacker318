@@ -11,7 +11,7 @@ async function loadItems(section) {
 function renderItem(section, item) {
     const li = document.createElement("li");
     li.dataset.id = item.id;
-    if (item.done) li.classList.add("done");
+    li.className = `progress-${item.progress || "not_started"}`;
     li.draggable = true;
 
     const grip = document.createElement("span");
@@ -20,7 +20,18 @@ function renderItem(section, item) {
 
     const span = document.createElement("span");
     span.textContent = item.text;
-    span.onclick = () => toggleItem(section, item.id);
+
+    const inProgressBtn = document.createElement("button");
+    inProgressBtn.textContent = "▶";
+    inProgressBtn.className = "progress-btn";
+    inProgressBtn.title = "Mark in progress";
+    inProgressBtn.onclick = () => setProgress(section, item.id, "in_progress");
+
+    const doneBtn = document.createElement("button");
+    doneBtn.textContent = "✓";
+    doneBtn.className = "progress-btn";
+    doneBtn.title = "Mark done";
+    doneBtn.onclick = () => setProgress(section, item.id, "done");
 
     const del = document.createElement("button");
     del.textContent = "x";
@@ -29,6 +40,8 @@ function renderItem(section, item) {
 
     li.appendChild(grip);
     li.appendChild(span);
+    li.appendChild(inProgressBtn);
+    li.appendChild(doneBtn);
     li.appendChild(del);
 
     addDesktopDrag(li, section);
@@ -140,6 +153,15 @@ async function addItem(section, inputId) {
 
 async function toggleItem(section, id) {
     await fetch(`/api/${section}/${id}`, { method: "PATCH" });
+    loadItems(section);
+}
+
+async function setProgress(section, id, progress) {
+    await fetch(`/api/${section}/${id}/progress`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ progress })
+    });
     loadItems(section);
 }
 

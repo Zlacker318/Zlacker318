@@ -27,6 +27,9 @@ def init_db():
                 cur.execute(f"""
                     ALTER TABLE {table} ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0
                 """)
+                cur.execute(f"""
+                    ALTER TABLE {table} ADD COLUMN IF NOT EXISTS progress TEXT DEFAULT 'not_started'
+                """)
         conn.commit()
 
 ALLOWED_SECTIONS = {"todos", "groceries"}
@@ -76,6 +79,22 @@ def toggle_item(section, item_id):
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(f"UPDATE {section} SET done = NOT done WHERE id = %s RETURNING *", (item_id,))
+            item = cur.fetchone()
+        conn.commit()
+    return jsonify(dict(item))
+
+ALLOWED_PROGRESS = {"not_started", "in_progress", "done"}
+
+@app.route("/api/<section>/<int:item_id>/progress", methods=["PATCH"])
+def set_progress(section, item_id):
+    err = validate(section)
+    if err: return err
+    progress = request.json.get("progress")
+    if progress not in ALLOWED_PROGRESS:
+        return jsonify({"error": "invalid progress value"}), 400
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE {section} SET progress = %s WHERE id = %s RETURNING *", (progress, item_id))
             item = cur.fetchone()
         conn.commit()
     return jsonify(dict(item))
