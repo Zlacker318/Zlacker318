@@ -1,4 +1,7 @@
 import os
+import smtplib
+import threading
+from email.message import EmailMessage
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import psycopg2
@@ -8,6 +11,28 @@ app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+EMAIL_FROM = os.environ.get("EMAIL_FROM")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+EMAIL_TO = os.environ.get("EMAIL_TO", "")
+
+def send_notification(section, text):
+    if not EMAIL_FROM or not EMAIL_PASSWORD or not EMAIL_TO:
+        return
+    recipients = [e.strip() for e in EMAIL_TO.split(",") if e.strip()]
+    if not recipients:
+        return
+    section_label = "To-Do List" if section == "todos" else "Groceries"
+    msg = EmailMessage()
+    msg["Subject"] = f"[Household] New item added to {section_label}"
+    msg["From"] = EMAIL_FROM
+    msg["To"] = ", ".join(recipients)
+    msg.set_content(f'"{text}" was added to the {section_label}.')
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(EMAIL_FROM, EMAIL_PASSWORD)
+            smtp.send_message(msg)
+    except Exception as e:
+        app.logger.error(f"Email failed: {e}")
 
 def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -70,6 +95,7 @@ def add_item(section):
             )
             item = cur.fetchone()
         conn.commit()
+    threading.Thread(target=send_notification, args=(section, text), daemon=True).start()
     return jsonify(dict(item)), 201
 
 @app.route("/api/<section>/<int:item_id>", methods=["PATCH"])
