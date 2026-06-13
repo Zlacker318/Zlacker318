@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Household Finances</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Household Finances</h1>
+
+    <div class="month-bar">
+        <label for="month-picker">Month</label>
+        <input type="month" id="month-picker" />
+        <button onclick="loadAll()">Load</button>
+    </div>
+
+    <div class="summary-cards">
+        <div class="card income-card">
+            <div class="card-label">Total Income</div>
+            <div class="card-value" id="total-income">$0</div>
+        </div>
+        <div class="card expense-card">
+            <div class="card-label">Total Expenses</div>
+            <div class="card-value" id="total-expenses">$0</div>
+        </div>
+        <div class="card balance-card">
+            <div class="card-label">Balance</div>
+            <div class="card-value" id="balance">$0</div>
+        </div>
+    </div>
+
+    <div class="charts-row">
+        <div class="chart-box">
+            <h3>Income by Person</h3>
+            <canvas id="income-chart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>Spending by Category</h3>
+            <canvas id="expense-chart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>Income vs Expenses</h3>
+            <canvas id="balance-chart"></canvas>
+        </div>
+    </div>
+
+    <div class="inputs-row">
+        <section class="input-section">
+            <h2>Add Income</h2>
+            <div class="form-group">
+                <input type="text" id="income-person" placeholder="Person (e.g. Carlos)" />
+                <input type="number" id="income-amount" placeholder="Amount" min="0" step="0.01" />
+                <input type="month" id="income-month" />
+                <button onclick="addIncome()">Add</button>
+            </div>
+            <ul id="incomes-list"></ul>
+        </section>
+
+        <section class="input-section">
+            <h2>Add Expense</h2>
+            <div class="form-group">
+                <input type="text" id="expense-category" placeholder="Category (e.g. Rent)" />
+                <input type="text" id="expense-description" placeholder="Description (optional)" />
+                <input type="number" id="expense-amount" placeholder="Amount" min="0" step="0.01" />
+                <input type="month" id="expense-month" />
+                <button onclick="addExpense()">Add</button>
+            </div>
+            <ul id="expenses-list"></ul>
+        </section>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
