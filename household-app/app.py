@@ -2,6 +2,7 @@ import os
 import json
 import threading
 import urllib.request
+import urllib.error
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import psycopg2
@@ -37,6 +38,8 @@ def send_notification(section, text):
     )
     try:
         urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
+        app.logger.error(f"Email failed: {e.code} {e.read().decode()}")
     except Exception as e:
         app.logger.error(f"Email failed: {e}")
 
