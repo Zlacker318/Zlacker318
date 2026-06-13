@@ -1,7 +1,7 @@
 import os
-import smtplib
+import json
 import threading
-from email.message import EmailMessage
+import urllib.request
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import psycopg2
@@ -11,26 +11,32 @@ app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-EMAIL_FROM = os.environ.get("EMAIL_FROM")
-EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 EMAIL_TO = os.environ.get("EMAIL_TO", "")
 
 def send_notification(section, text):
-    if not EMAIL_FROM or not EMAIL_PASSWORD or not EMAIL_TO:
+    if not RESEND_API_KEY or not EMAIL_TO:
         return
     recipients = [e.strip() for e in EMAIL_TO.split(",") if e.strip()]
     if not recipients:
         return
     section_label = "To-Do List" if section == "todos" else "Groceries"
-    msg = EmailMessage()
-    msg["Subject"] = f"[Household] New item added to {section_label}"
-    msg["From"] = EMAIL_FROM
-    msg["To"] = ", ".join(recipients)
-    msg.set_content(f'"{text}" was added to the {section_label}.')
+    payload = json.dumps({
+        "from": "Household App <onboarding@resend.dev>",
+        "to": recipients,
+        "subject": f"[Household] New item added to {section_label}",
+        "text": f'"{text}" was added to the {section_label}.'
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        }
+    )
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(EMAIL_FROM, EMAIL_PASSWORD)
-            smtp.send_message(msg)
+        urllib.request.urlopen(req)
     except Exception as e:
         app.logger.error(f"Email failed: {e}")
 
